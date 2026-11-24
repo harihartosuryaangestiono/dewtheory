@@ -67,7 +67,7 @@ interface AffiliateContextType {
 
 const DEFAULT_USER: UserSession = {
   name: 'Dinda',
-  email: 'dinda@dewtheory.com',
+  email: 'dindavictora1509@gmail.com',
   role: 'specialist',
 };
 
@@ -151,8 +151,8 @@ export function AffiliateProvider({ children }: { children: React.ReactNode }) {
           .select('*')
           .order('created_at', { ascending: false });
 
-        if (dbCreators && dbCreators.length > 0 && mounted) {
-          setCreators(dbCreators);
+        if (mounted) {
+          setCreators(dbCreators || []);
         }
 
         // Fetch Shipments
@@ -161,8 +161,8 @@ export function AffiliateProvider({ children }: { children: React.ReactNode }) {
           .select('*')
           .order('created_at', { ascending: false });
 
-        if (dbShipments && dbShipments.length > 0 && mounted) {
-          setShipments(dbShipments);
+        if (mounted) {
+          setShipments(dbShipments || []);
         }
 
         // Fetch SOWs
@@ -170,8 +170,8 @@ export function AffiliateProvider({ children }: { children: React.ReactNode }) {
           .from('sow')
           .select('*');
 
-        if (dbSows && dbSows.length > 0 && mounted) {
-          setSows(dbSows);
+        if (mounted) {
+          setSows(dbSows || []);
         }
 
         // Fetch Templates

@@ -30,17 +30,17 @@ export default function TemplatesPage() {
     setContent(t.content);
   };
 
-  // Sample dummy creator for live preview
+  // Sample creator for live preview
   const sampleCreator = creators[0] || {
-    id: 'demo',
+    id: 'sample',
     campaign_id: 'desember-2026',
-    username: 'skincarebyrani',
-    display_name: 'Rani Beauty Journal',
-    phone_raw: '81290001742',
-    phone_e164: '6281290001742',
+    username: 'nama_creator',
+    display_name: 'Nama Creator',
+    phone_raw: '08123456789',
+    phone_e164: '628123456789',
     phone_status: 'valid',
     platform: 'TikTok',
-    source: 'RKP',
+    source: 'Outreach',
     category: (activeTemplate?.category as any) || 'A',
     curation_status: 'oke',
     pipeline_status: 'curated',
