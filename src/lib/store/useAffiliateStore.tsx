@@ -309,46 +309,51 @@ export function AffiliateProvider({ children }: { children: React.ReactNode }) {
   const claimCreator = useCallback(async (id: string): Promise<{ success: boolean; locked_by?: string }> => {
     const now = new Date();
     const lockExpiry = new Date(now.getTime() + 5 * 60 * 1000).toISOString();
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
     try {
-      // 1. Try atomic Supabase RPC function first
-      const { data, error } = await supabase.rpc('claim_creator_lock', {
-        p_creator_id: id,
-        p_user_name: currentUser.name,
-        p_lock_minutes: 5,
-      });
+      // 1. Try atomic Supabase RPC function if valid UUID
+      if (isUUID) {
+        const { data, error } = await supabase.rpc('claim_creator_lock', {
+          p_creator_id: id,
+          p_user_name: currentUser.name,
+          p_lock_minutes: 5,
+        });
 
-      if (!error && data) {
-        if (data.success) {
-          setCreators(prev => prev.map(c => c.id === id ? { ...c, locked_by: currentUser.name, locked_until: data.locked_until } : c));
-          return { success: true, locked_by: currentUser.name };
-        } else {
-          setCreators(prev => prev.map(c => c.id === id ? { ...c, locked_by: data.locked_by, locked_until: data.locked_until } : c));
-          return { success: false, locked_by: data.locked_by };
+        if (!error && data) {
+          if (data.success) {
+            setCreators(prev => prev.map(c => c.id === id ? { ...c, locked_by: currentUser.name, locked_until: data.locked_until } : c));
+            return { success: true, locked_by: currentUser.name };
+          } else {
+            setCreators(prev => prev.map(c => c.id === id ? { ...c, locked_by: data.locked_by, locked_until: data.locked_until } : c));
+            return { success: false, locked_by: data.locked_by };
+          }
         }
       }
     } catch (e) {
       // Fallback
     }
 
-    // 2. Fallback: Atomic local state evaluation
-    let result = { success: false, locked_by: 'Pengguna Lain' };
+    // 2. Fallback: Synchronous state evaluation
+    const target = creators.find(c => c.id === id);
+    if (!target) {
+      return { success: true, locked_by: currentUser.name };
+    }
+
+    const isLockedByOther = Boolean(
+      target.locked_by &&
+      target.locked_by !== currentUser.name &&
+      target.locked_until &&
+      new Date(target.locked_until) > now
+    );
+
+    if (isLockedByOther) {
+      return { success: false, locked_by: target.locked_by || 'Pengguna Lain' };
+    }
+
+    // Successfully claim lock
     setCreators(prev => prev.map(c => {
       if (c.id !== id) return c;
-
-      const isLockedByOther = Boolean(
-        c.locked_by &&
-        c.locked_by !== currentUser.name &&
-        c.locked_until &&
-        new Date(c.locked_until) > now
-      );
-
-      if (isLockedByOther) {
-        result = { success: false, locked_by: c.locked_by || 'Pengguna Lain' };
-        return c;
-      }
-
-      result = { success: true, locked_by: currentUser.name };
       return {
         ...c,
         locked_by: currentUser.name,
@@ -356,8 +361,15 @@ export function AffiliateProvider({ children }: { children: React.ReactNode }) {
       };
     }));
 
-    return result;
-  }, [currentUser.name]);
+    if (isUUID) {
+      supabase.from('creators').update({
+        locked_by: currentUser.name,
+        locked_until: lockExpiry,
+      }).eq('id', id).then();
+    }
+
+    return { success: true, locked_by: currentUser.name };
+  }, [creators, currentUser.name]);
 
   // Release creator lock
   const releaseCreator = useCallback((id: string) => {
@@ -931,7 +943,9 @@ export function AffiliateProvider({ children }: { children: React.ReactNode }) {
       } else {
         added++;
         const newRecord: Creator = {
-          id: 'c-' + Math.random().toString(36).substring(2, 9),
+          id: (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+            ? crypto.randomUUID()
+            : '00000000-0000-4000-8000-' + Math.random().toString(16).slice(2, 14).padStart(12, '0'),
           campaign_id: campaign.id,
           username: u,
           display_name: nc.display_name || u,
@@ -955,14 +969,73 @@ export function AffiliateProvider({ children }: { children: React.ReactNode }) {
     setCreators(Array.from(creatorsMap.values()));
     addActivity('Import Data', undefined, `Menambahkan ${added} baru, memperbarui ${updated} creator`);
 
-    // Sync to Supabase
-    if (dbInsertBatch.length > 0) {
-      supabase.from('creators').insert(dbInsertBatch).then();
-    }
-    if (dbUpdateBatch.length > 0) {
-      for (const item of dbUpdateBatch) {
-        supabase.from('creators').update(item).eq('id', item.id).then();
-      }
+    // Sync to Supabase — only columns that exist in the DB schema
+    const DB_COLS = [
+      'id', 'campaign_id', 'username', 'display_name',
+      'phone_raw', 'phone_e164', 'phone_status',
+      'platform', 'source', 'category',
+      'curation_status', 'pipeline_status',
+      'notes', 'tags', 'is_favorite',
+      'assigned_to', 'locked_by', 'locked_until',
+      'contacted_at', 'contacted_by',
+      'created_at', 'updated_at',
+    ] as const;
+
+    type DbRow = Record<typeof DB_COLS[number], unknown>;
+    const toDbRow = (c: Creator): DbRow =>
+      Object.fromEntries(DB_COLS.map(k => [k, (c as any)[k] ?? null])) as DbRow;
+
+    const allBatch = [...dbInsertBatch, ...dbUpdateBatch];
+    if (allBatch.length > 0) {
+      const dbRows = allBatch.map(toDbRow);
+
+      // Fallback: direct client-side upsert in chunks of 500
+      const clientSideUpsert = (rows: DbRow[]) => {
+        const CHUNK = 500;
+        for (let i = 0; i < rows.length; i += CHUNK) {
+          const chunk = rows.slice(i, i + CHUNK);
+          supabase
+            .from('creators')
+            .upsert(chunk, { onConflict: 'campaign_id,username', ignoreDuplicates: false })
+            .then(({ error }) => {
+              if (error) {
+                console.error(`[import-fallback] upsert error (chunk ${Math.floor(i / CHUNK) + 1}):`, error.message, error.details);
+              } else {
+                console.info(`[import-fallback] chunk ${Math.floor(i / CHUNK) + 1}: upserted ${chunk.length} row(s) OK`);
+              }
+            });
+        }
+      };
+
+      // Try server-side route first (uses service role key — no RLS issues)
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        const token = session?.access_token;
+        if (token) {
+          fetch('/api/import', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify(dbRows),
+          })
+            .then(async (res) => {
+              const json = await res.json().catch(() => ({}));
+              if (!res.ok) {
+                console.error('[import] /api/import error:', json);
+                return clientSideUpsert(dbRows);
+              }
+              console.info(`[import] /api/import OK: upserted ${json.upserted ?? '?'} row(s)`);
+            })
+            .catch((err) => {
+              console.error('[import] fetch /api/import failed:', err);
+              clientSideUpsert(dbRows);
+            });
+        } else {
+          // No session — use client-side upsert directly
+          clientSideUpsert(dbRows);
+        }
+      });
     }
 
     return { added, updated };

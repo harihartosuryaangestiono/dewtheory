@@ -226,27 +226,44 @@ export default function CurationPage() {
     return null;
   }, [currentCreator]);
 
-  // Claim Lock effect when current creator changes in Fast Mode
+  // Reference to prevent claim-lock infinite re-render loops
+  const activeCreatorId = currentCreator?.id;
+  const activeUsername = currentCreator?.username;
+  const lastClaimedIdRef = useRef<string | null>(null);
+
+  // Claim Lock effect when active creator changes in Fast Mode
   useEffect(() => {
-    if (viewMode !== 'fast' || !currentCreator) return;
+    if (viewMode !== 'fast' || !activeCreatorId) return;
+    if (lastClaimedIdRef.current === activeCreatorId) return; // Prevent duplicate claim loop
 
     let isMounted = true;
-    claimCreator(currentCreator.id).then(({ success, locked_by }) => {
+    const previousId = lastClaimedIdRef.current;
+    if (previousId && previousId !== activeCreatorId) {
+      releaseCreator(previousId);
+    }
+    lastClaimedIdRef.current = activeCreatorId;
+
+    claimCreator(activeCreatorId).then(({ success, locked_by }) => {
       if (!isMounted) return;
       if (!success && locked_by && locked_by !== currentUser.name) {
-        toast.warning(`@${currentCreator.username} sedang dikurasi oleh ${locked_by}. Melompat ke creator berikutnya...`);
-        // Jump to next
+        toast.warning(`@${activeUsername} sedang dikurasi oleh ${locked_by}. Melompat ke creator berikutnya...`);
         setCurrentIndex(prev => prev + 1);
       }
     });
 
     return () => {
       isMounted = false;
-      if (currentCreator) {
-        releaseCreator(currentCreator.id);
+    };
+  }, [activeCreatorId, activeUsername, viewMode, currentUser.name, claimCreator, releaseCreator]);
+
+  // Release lock on component unmount
+  useEffect(() => {
+    return () => {
+      if (lastClaimedIdRef.current) {
+        releaseCreator(lastClaimedIdRef.current);
       }
     };
-  }, [currentCreator, viewMode, currentUser.name, claimCreator, releaseCreator]);
+  }, [releaseCreator]);
 
   // 3. Open TikTok Profile Popup in Right Half of Screen (Shortcut T)
   const openTikTokProfile = useCallback(() => {

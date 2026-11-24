@@ -65,7 +65,7 @@ export default function ImportExportPage() {
     reader.readAsBinaryString(file);
   };
 
-  // Commit parsed data into store
+  // Commit parsed data into store then persist to Supabase
   const handleSaveToStore = () => {
     if (!parseResult) return;
     const { added, updated } = importCreatorsBatch(
@@ -73,7 +73,10 @@ export default function ImportExportPage() {
       parseResult.shipments,
       parseResult.sows
     );
-    toast.success(`Data berhasil disimpan! (${added} baru ditambahkan, ${updated} diperbarui)`);
+    toast.success(
+      `${added} creator baru + ${updated} diperbarui — menyimpan ke database…`,
+      { duration: 4000 }
+    );
     setParseResult(null);
     setFileName('');
   };
