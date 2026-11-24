@@ -21,7 +21,7 @@ export function cleanUsername(val: any): string {
   if (str.includes('tiktok.com/@')) {
     str = str.split('tiktok.com/@')[1].split('/')[0].split('?')[0];
   }
-  str = str.replace(/^@+/, '').trim();
+  str = str.replace(/^@+/, '').replace(/\/+$/, '').trim();
   return str;
 }
 

@@ -52,7 +52,9 @@ interface AffiliateContextType {
   undoContacted: (id: string) => void;
   markRefuse: (id: string, notes?: string) => void;
   markInvalidPhone: (id: string) => void;
-  updateCuration: (id: string, curation: CurationStatus, category?: Category) => void;
+  updateCuration: (id: string, curation: CurationStatus, category?: Category, notes?: string, tags?: string[]) => void;
+  restoreCreatorState: (id: string, prevState: Partial<Creator>) => void;
+  splitCurationQueue: (user1Name: string, user2Name: string) => void;
   batchUpdateCuration: (ids: string[], curation: CurationStatus, category?: Category) => void;
   promoteSecondOption: (id: string, category: Category) => void;
   autoSplitQueue: (user1Name: string, user2Name: string) => void;
@@ -522,32 +524,116 @@ export function AffiliateProvider({ children }: { children: React.ReactNode }) {
     }
   }, [creators, addActivity]);
 
-  // Update curation
-  const updateCuration = useCallback(async (id: string, curation: CurationStatus, category?: Category) => {
+  // Update curation (supports optimistic update, notes, tags, lock release, and activity logging)
+  const updateCuration = useCallback(async (
+    id: string, 
+    curation: CurationStatus, 
+    category?: Category,
+    notes?: string,
+    tags?: string[]
+  ) => {
     let newPipeline: PipelineStatus = 'pool';
     if (curation === 'reject') newPipeline = 'refuse';
     else if (curation === 'oke') newPipeline = 'curated';
     else if (curation === 'second_option') newPipeline = 'curated';
+    else if (curation === 'pending') newPipeline = 'pool';
+
+    const creatorTarget = creators.find(c => c.id === id);
 
     setCreators(prev => prev.map(c => {
       if (c.id !== id) return c;
       return {
         ...c,
         curation_status: curation,
-        category: category || c.category,
+        category: category !== undefined ? category : c.category,
         pipeline_status: newPipeline,
+        notes: notes !== undefined ? notes : c.notes,
+        tags: tags !== undefined ? tags : c.tags,
+        locked_by: undefined,
+        locked_until: null,
       };
     }));
 
+    if (creatorTarget) {
+      addActivity(
+        'Kurasi Creator',
+        creatorTarget.username,
+        `Keputusan: ${curation.toUpperCase()}${category ? ` (Kategori ${category})` : ''}`,
+        id
+      );
+    }
+
     try {
-      await supabase.from('creators').update({
+      const updatePayload: any = {
         curation_status: curation,
-        category: category || undefined,
         pipeline_status: newPipeline,
+        locked_by: null,
+        locked_until: null,
         updated_at: new Date().toISOString(),
-      }).eq('id', id);
+      };
+      if (category !== undefined) updatePayload.category = category;
+      if (notes !== undefined) updatePayload.notes = notes;
+      if (tags !== undefined) updatePayload.tags = tags;
+
+      await supabase.from('creators').update(updatePayload).eq('id', id);
     } catch (e) {
       console.error('Supabase update curation error', e);
+    }
+  }, [creators, addActivity]);
+
+  // Restore creator state for Undo curation
+  const restoreCreatorState = useCallback(async (id: string, prevState: Partial<Creator>) => {
+    setCreators(prev => prev.map(c => {
+      if (c.id !== id) return c;
+      return {
+        ...c,
+        ...prevState,
+        locked_by: undefined,
+        locked_until: null,
+      };
+    }));
+
+    const target = creators.find(c => c.id === id);
+    if (target) {
+      addActivity('Undo Kurasi', target.username, 'Membatalkan keputusan kurasi sebelumnya', id);
+    }
+
+    try {
+      const payload: any = {
+        ...prevState,
+        locked_by: null,
+        locked_until: null,
+        updated_at: new Date().toISOString(),
+      };
+      await supabase.from('creators').update(payload).eq('id', id);
+    } catch (e) {
+      console.error('Supabase restore creator error', e);
+    }
+  }, [creators, addActivity]);
+
+  // Auto split curation queue between two users
+  const splitCurationQueue = useCallback(async (user1: string, user2: string) => {
+    let countU1 = 0;
+    let countU2 = 0;
+    const updates: { id: string; assigned_to: string }[] = [];
+
+    setCreators(prev => prev.map(c => {
+      if (c.curation_status === 'pending') {
+        const assigned = (countU1 <= countU2) ? user1 : user2;
+        if (assigned === user1) countU1++; else countU2++;
+        updates.push({ id: c.id, assigned_to: assigned });
+        return { ...c, assigned_to: assigned };
+      }
+      return c;
+    }));
+    toast.success(`Antrean kurasi berhasil dibagi dua: ${user1} (${countU1}), ${user2} (${countU2})`);
+
+    try {
+      for (const u of updates) {
+        await supabase.from('creators').update({ assigned_to: u.assigned_to }).eq('id', u.id);
+      }
+    } catch (e) {
+      console.error('Supabase split curation error', e);
     }
   }, []);
 
@@ -916,6 +1002,8 @@ export function AffiliateProvider({ children }: { children: React.ReactNode }) {
         markRefuse,
         markInvalidPhone,
         updateCuration,
+        restoreCreatorState,
+        splitCurationQueue,
         batchUpdateCuration,
         promoteSecondOption,
         autoSplitQueue,
