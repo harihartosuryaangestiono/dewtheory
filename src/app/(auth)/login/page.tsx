@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import { translateAuthError, getSafeRedirectUrl } from '@/lib/utils/auth-errors';
@@ -116,12 +116,18 @@ function LoginFormContent() {
     }
   };
 
-  // 1 Tombol Khusus Akun Dinda
-  const handleQuickFillDinda = () => {
-    setEmail('dindavictora1509@gmail.com');
-    setPassword('DewTheory2026!');
+  // Ref untuk memindahkan fokus ke kolom kata sandi
+  const passwordInputRef = useRef<HTMLInputElement>(null);
+  const dindaEmail = process.env.NEXT_PUBLIC_DINDA_EMAIL;
+
+  // Pintasan Masuk sebagai Dinda: hanya mengisi email dan memindahkan fokus ke kata sandi
+  const handleFillDindaEmail = () => {
+    if (!dindaEmail) return;
+    setEmail(dindaEmail);
     setErrorMsg('');
-    toast.info('Akun Dinda dipilih');
+    setTimeout(() => {
+      passwordInputRef.current?.focus();
+    }, 0);
   };
 
   return (
@@ -280,6 +286,7 @@ function LoginFormContent() {
             <div className="relative">
               <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5 pointer-events-none" />
               <input
+                ref={passwordInputRef}
                 id="login-password"
                 name="password"
                 type={showPassword ? 'text' : 'password'}
@@ -324,23 +331,21 @@ function LoginFormContent() {
               </>
             )}
           </button>
-        </form>
-      )}
 
-      {/* 1 Tombol Khusus Akun Dinda */}
-      {!isForgotMode && (
-        <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800/80">
-          <button
-            type="button"
-            onClick={handleQuickFillDinda}
-            className="w-full py-2.5 px-4 rounded-2xl border border-teal-200 dark:border-teal-800/70 bg-teal-50/70 hover:bg-teal-100/70 dark:bg-teal-950/40 dark:hover:bg-teal-950/70 text-xs font-bold text-teal-800 dark:text-teal-300 transition-all flex items-center justify-center gap-2 shadow-sm"
-          >
-            <div className="w-5 h-5 rounded-full bg-teal-600 text-white flex items-center justify-center text-[10px] font-black shadow-sm">
-              D
-            </div>
-            <span>Akun Dinda</span>
-          </button>
-        </div>
+          {/* Tombol Pintasan Masuk sebagai Dinda (gaya sekunder outline, hanya jika NEXT_PUBLIC_DINDA_EMAIL disetel) */}
+          {Boolean(dindaEmail) && (
+            <button
+              type="button"
+              onClick={handleFillDindaEmail}
+              className="w-full py-3 px-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800/60 active:scale-[0.99] text-xs font-semibold text-slate-700 dark:text-slate-200 transition-all flex items-center justify-center gap-2 shadow-sm"
+            >
+              <span className="w-5 h-5 rounded-full bg-teal-100 dark:bg-teal-900/60 text-teal-700 dark:text-teal-300 flex items-center justify-center text-[10px] font-black border border-teal-200 dark:border-teal-700">
+                D
+              </span>
+              <span>Masuk sebagai Dinda</span>
+            </button>
+          )}
+        </form>
       )}
 
       {/* Internal Team Notice */}

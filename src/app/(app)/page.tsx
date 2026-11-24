@@ -56,7 +56,7 @@ export default function DashboardPage() {
     const totalPosted = sows.filter(s => s.status === 'verified').length;
 
     return [
-      { label: '1. Pool Creator', count: totalPool, percent: 100 },
+      { label: '1. Pool Creator', count: totalPool, percent: totalPool > 0 ? 100 : 0 },
       { label: '2. Terkurasi OKE', count: totalOke, percent: totalPool ? Math.round((totalOke / totalPool) * 100) : 0 },
       { label: '3. Contacted WA', count: totalContacted, percent: totalOke ? Math.round((totalContacted / totalOke) * 100) : 0 },
       { label: '4. Replied / Balas', count: totalReplied, percent: totalContacted ? Math.round((totalReplied / totalContacted) * 100) : 0 },
@@ -291,7 +291,7 @@ export default function DashboardPage() {
                 <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
                   <div
                     className="bg-gradient-to-r from-teal-500 to-cyan-400 h-full rounded-full transition-all duration-500"
-                    style={{ width: `${Math.max(5, stage.percent)}%` }}
+                    style={{ width: `${stage.percent}%` }}
                   />
                 </div>
               </div>

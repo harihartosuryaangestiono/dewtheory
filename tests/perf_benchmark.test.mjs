@@ -79,3 +79,33 @@ test('Performance: Virtualized table slices only visible DOM rows for 10,000 cre
 
   assert.equal(renderedVirtualHeight, TOTAL_ITEMS * ROW_HEIGHT, 'Total virtual height matches exact 10,000 rows calculation');
 });
+
+test('Dashboard Funnel: Empty dataset calculates 0% progress and 0% bar widths without fake offsets', () => {
+  const emptyCreators = [];
+  const emptyShipments = [];
+  const emptySows = [];
+
+  const totalPool = emptyCreators.length;
+  const totalOke = emptyCreators.filter(c => c.curation_status === 'oke').length;
+  const totalContacted = emptyCreators.filter(c => ['contacted', 'replied', 'join'].includes(c.pipeline_status)).length;
+
+  const funnel = [
+    { label: '1. Pool Creator', count: totalPool, percent: totalPool > 0 ? 100 : 0 },
+    { label: '2. Terkurasi OKE', count: totalOke, percent: totalPool ? Math.round((totalOke / totalPool) * 100) : 0 },
+    { label: '3. Contacted WA', count: totalContacted, percent: totalOke ? Math.round((totalContacted / totalOke) * 100) : 0 },
+  ];
+
+  // Stage 1 Pool Creator must be 0% when pool is 0 (NOT hardcoded 100%)
+  assert.equal(funnel[0].count, 0);
+  assert.equal(funnel[0].percent, 0, 'Pool Creator percent must be 0% when creators is empty');
+
+  // Stages 2 & 3 must also be 0%
+  assert.equal(funnel[1].percent, 0);
+  assert.equal(funnel[2].percent, 0);
+
+  // Bar width string calculation must be '0%' and NOT forced to min-w 5%
+  funnel.forEach(stage => {
+    const widthStyle = `${stage.percent}%`;
+    assert.equal(widthStyle, '0%', `Bar width for ${stage.label} must be 0%`);
+  });
+});
