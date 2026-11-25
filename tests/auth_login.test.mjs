@@ -19,8 +19,9 @@ test('Auth Layout Isolation: /login route group is completely separated from Sid
   assert.ok(!authLayoutCode.includes('Header'), 'Auth layout must not contain Header');
   assert.ok(!authLayoutCode.includes('AffiliateProvider'), 'Auth layout must not fetch app store data');
 
-  // 3. Login page contains 1 dedicated button for Masuk sebagai Dinda, and no Akun Surya button
+  // 3. Login page contains shortcuts for Dinda and Hari, but no Surya button
   assert.ok(loginPageCode.includes('Masuk sebagai Dinda'), 'Login page must contain 1 button for Masuk sebagai Dinda');
+  assert.ok(loginPageCode.includes('Masuk sebagai Hari'), 'Login page must contain a button for Masuk sebagai Hari');
   assert.ok(!loginPageCode.includes('Masuk sebagai Surya'), 'Login page must not contain Surya shortcut button');
   assert.ok(!loginPageCode.includes('dailyOutreachCount'), 'Login page must not display daily counter');
   assert.ok(!loginPageCode.includes('dailyTarget'), 'Login page must not display target WA');
@@ -124,7 +125,7 @@ test('User Seeding Script Security: Refuses execution when env vars are missing 
   assert.ok(!seedScriptCode.includes('DewTheory2026!'), 'Seed script must not contain hardcoded default password');
 });
 
-test('Auth Shortcut Button: "Masuk sebagai Dinda" behavior, security, and gating', () => {
+test('Auth Shortcut Buttons: Dinda and Hari behavior, security, and gating', () => {
   const loginPageCode = readFileSync('src/app/(auth)/login/page.tsx', 'utf8');
   const envExample = readFileSync('.env.example', 'utf8');
 
@@ -134,27 +135,33 @@ test('Auth Shortcut Button: "Masuk sebagai Dinda" behavior, security, and gating
   
   // 2. Email is sourced from NEXT_PUBLIC_DINDA_EMAIL, NOT hardcoded in client code
   assert.ok(loginPageCode.includes('process.env.NEXT_PUBLIC_DINDA_EMAIL'), 'Must read NEXT_PUBLIC_DINDA_EMAIL');
+  assert.ok(loginPageCode.includes('process.env.NEXT_PUBLIC_HARI_EMAIL'), 'Must read NEXT_PUBLIC_HARI_EMAIL');
   assert.ok(!loginPageCode.includes('dindavictora1509@gmail.com'), 'Client code must NOT contain hardcoded Dinda email');
+  assert.ok(!loginPageCode.includes('hariharto.surya@gmail.com'), 'Client code must NOT contain hardcoded Hari email');
   assert.ok(!loginPageCode.includes('DewTheory2026!'), 'Client code must NOT contain hardcoded password');
 
   // 3. Button does NOT appear when NEXT_PUBLIC_DINDA_EMAIL is empty/undefined
   assert.ok(loginPageCode.includes('Boolean(dindaEmail)'), 'Button must only render when dindaEmail is defined');
+  assert.ok(loginPageCode.includes('Boolean(hariEmail)'), 'Button must only render when hariEmail is defined');
 
   // 4. Click behavior: fills email and focuses password field, password remains empty, no login triggered
-  assert.ok(loginPageCode.includes('setEmail(dindaEmail)'), 'Shortcut fills email state');
+  assert.ok(loginPageCode.includes('handleFillAccountEmail(dindaEmail)'), 'Dinda shortcut fills its email');
+  assert.ok(loginPageCode.includes('handleFillAccountEmail(hariEmail)'), 'Hari shortcut fills its email');
+  assert.ok(loginPageCode.includes('setEmail(accountEmail)'), 'Shortcut fills email state');
   assert.ok(loginPageCode.includes('passwordInputRef.current?.focus()'), 'Shortcut focuses password input ref');
-  assert.ok(!loginPageCode.includes('setPassword(dindaEmail)'), 'Password state must NOT be set to email');
+  assert.ok(!loginPageCode.includes('setPassword(accountEmail)'), 'Password state must NOT be set by shortcut');
 
   // 5. Autocomplete attributes ensure password managers can autofill password after email is set
   assert.ok(loginPageCode.includes('autoComplete="username"'));
   assert.ok(loginPageCode.includes('autoComplete="current-password"'));
 
-  // 6. No shortcut for Surya or other accounts
+  // 6. No shortcut for Surya
   assert.ok(!loginPageCode.includes('Masuk sebagai Surya'));
   assert.ok(!loginPageCode.includes('NEXT_PUBLIC_SURYA_EMAIL'));
 
   // 7. Environment example placeholder
   assert.ok(envExample.includes('NEXT_PUBLIC_DINDA_EMAIL='), '.env.example must document NEXT_PUBLIC_DINDA_EMAIL');
+  assert.ok(envExample.includes('NEXT_PUBLIC_HARI_EMAIL='), '.env.example must document NEXT_PUBLIC_HARI_EMAIL');
 });
 
 test('Auth Shortcut Logic: Simulates fill and focus behavior', () => {
@@ -169,9 +176,9 @@ test('Auth Shortcut Logic: Simulates fill and focus behavior', () => {
     }
   };
 
-  const simulateShortcutClick = (dindaEmail) => {
-    if (!dindaEmail) return false;
-    emailState = dindaEmail;
+  const simulateShortcutClick = (accountEmail) => {
+    if (!accountEmail) return false;
+    emailState = accountEmail;
     // Password state remains untouched
     mockPasswordRef.current?.focus();
     // No login called

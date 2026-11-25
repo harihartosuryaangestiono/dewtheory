@@ -119,11 +119,12 @@ function LoginFormContent() {
   // Ref untuk memindahkan fokus ke kolom kata sandi
   const passwordInputRef = useRef<HTMLInputElement>(null);
   const dindaEmail = process.env.NEXT_PUBLIC_DINDA_EMAIL;
+  const hariEmail = process.env.NEXT_PUBLIC_HARI_EMAIL;
 
-  // Pintasan Masuk sebagai Dinda: hanya mengisi email dan memindahkan fokus ke kata sandi
-  const handleFillDindaEmail = () => {
-    if (!dindaEmail) return;
-    setEmail(dindaEmail);
+  // Pintasan akun hanya mengisi email dan memindahkan fokus ke kata sandi.
+  const handleFillAccountEmail = (accountEmail?: string) => {
+    if (!accountEmail) return;
+    setEmail(accountEmail);
     setErrorMsg('');
     setTimeout(() => {
       passwordInputRef.current?.focus();
@@ -332,17 +333,29 @@ function LoginFormContent() {
             )}
           </button>
 
-          {/* Tombol Pintasan Masuk sebagai Dinda (gaya sekunder outline, hanya jika NEXT_PUBLIC_DINDA_EMAIL disetel) */}
+          {/* Pintasan akun hanya muncul jika email publik masing-masing disetel */}
           {Boolean(dindaEmail) && (
             <button
               type="button"
-              onClick={handleFillDindaEmail}
+              onClick={() => handleFillAccountEmail(dindaEmail)}
               className="w-full py-3 px-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800/60 active:scale-[0.99] text-xs font-semibold text-slate-700 dark:text-slate-200 transition-all flex items-center justify-center gap-2 shadow-sm"
             >
               <span className="w-5 h-5 rounded-full bg-teal-100 dark:bg-teal-900/60 text-teal-700 dark:text-teal-300 flex items-center justify-center text-[10px] font-black border border-teal-200 dark:border-teal-700">
                 D
               </span>
               <span>Masuk sebagai Dinda</span>
+            </button>
+          )}
+          {Boolean(hariEmail) && (
+            <button
+              type="button"
+              onClick={() => handleFillAccountEmail(hariEmail)}
+              className="w-full py-3 px-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800/60 active:scale-[0.99] text-xs font-semibold text-slate-700 dark:text-slate-200 transition-all flex items-center justify-center gap-2 shadow-sm"
+            >
+              <span className="w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-[10px] font-black border border-indigo-200 dark:border-indigo-700">
+                H
+              </span>
+              <span>Masuk sebagai Hari</span>
             </button>
           )}
         </form>
