@@ -33,6 +33,7 @@ export interface Creator {
   platform: Platform;
   source: string;
   category: Category;
+  curation_order?: number;
   curation_status: CurationStatus;
   pipeline_status: PipelineStatus;
   notes?: string;

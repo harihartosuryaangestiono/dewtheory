@@ -17,6 +17,9 @@ test('Dup Checker & Username Sanitizer: Extracts username from full TikTok URL',
 
 test('Category Mapper: Tolerates various aliases', () => {
   assert.equal(mapCategory('A'), 'A');
+  assert.equal(mapCategory('Category A'), 'A');
+  assert.equal(mapCategory('Kategori B'), 'B');
+  assert.equal(mapCategory('Kat C'), 'C');
   assert.equal(mapCategory('Toner'), 'A');
   assert.equal(mapCategory('Lotion'), 'B');
   assert.equal(mapCategory('Cleanser'), 'C');
@@ -37,4 +40,5 @@ test('Curation Decision Mapper: Tolerates diverse decision terms', () => {
   assert.deepEqual(mapCurationDecision('FALSE'), { curation: 'reject', pipeline: 'refuse' });
 
   assert.deepEqual(mapCurationDecision(null), { curation: 'pending', pipeline: 'pool' });
+  assert.deepEqual(mapCurationDecision(false), { curation: 'pending', pipeline: 'pool' });
 });

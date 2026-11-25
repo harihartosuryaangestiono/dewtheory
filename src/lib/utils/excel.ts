@@ -84,6 +84,8 @@ export function mapCategory(val: any): Category {
   if (!val) return 'UNASSIGNED';
   const str = String(val).trim().toUpperCase();
   if (['A', 'B', 'C', 'D'].includes(str)) return str as Category;
+  const labeledCategory = str.match(/^(?:CATEGORY|KATEGORI|KAT)\s*[-:]?\s*([A-D])(?:\b|$)/);
+  if (labeledCategory) return labeledCategory[1] as Category;
   if (str.includes('TONER') && str.includes('LOTION')) return 'D';
   if (str.includes('TONER')) return 'A';
   if (str.includes('LOTION')) return 'B';
@@ -126,12 +128,24 @@ export function parseWorkbook(workbook: XLSX.WorkBook): ParseResult {
   const creatorsMap = new Map<string, Partial<Creator>>();
   const shipmentsMap = new Map<string, Partial<Shipment>>();
   const sowsMap = new Map<string, Partial<SOWRecord>[]>();
+  const poolSheetName = sheetNames.find(n => /pool/i.test(n));
+  const rawPool = poolSheetName
+    ? XLSX.utils.sheet_to_json<any>(workbook.Sheets[poolSheetName])
+    : [];
+  const poolOrderByUsername = new Map<string, number>();
+  rawPool.forEach((row, rowIndex) => {
+    const userKey = Object.keys(row).find(k => /username/i.test(k));
+    const username = userKey ? cleanUsername(row[userKey]) : '';
+    if (username && !poolOrderByUsername.has(username)) {
+      poolOrderByUsername.set(username, rowIndex);
+    }
+  });
 
   // 1. Check & Process Sheet 'Data' (or similar like 'Sheet1', 'Kontak')
   const dataSheetName = sheetNames.find(n => /data/i.test(n));
   if (dataSheetName) {
     const rawData = XLSX.utils.sheet_to_json<any>(workbook.Sheets[dataSheetName]);
-    rawData.forEach(row => {
+    rawData.forEach((row, rowIndex) => {
       // Find username column
       const userColKey = Object.keys(row).find(k => /username/i.test(k));
       const phoneColKey = Object.keys(row).find(k => /no wa|wa|telp|phone|nomor/i.test(k));
@@ -153,6 +167,7 @@ export function parseWorkbook(workbook: XLSX.WorkBook): ParseResult {
             curation_status: 'pending',
             pipeline_status: 'pool',
             category: 'UNASSIGNED',
+            curation_order: rawPool.length + rowIndex,
           });
         }
       }
@@ -160,11 +175,9 @@ export function parseWorkbook(workbook: XLSX.WorkBook): ParseResult {
   }
 
   // 2. Check & Process Sheet 'Pool'
-  const poolSheetName = sheetNames.find(n => /pool/i.test(n));
   if (poolSheetName) {
-    const rawPool = XLSX.utils.sheet_to_json<any>(workbook.Sheets[poolSheetName]);
     const seenInPool = new Set<string>();
-    rawPool.forEach(row => {
+    rawPool.forEach((row, rowIndex) => {
       const userKey = Object.keys(row).find(k => /username/i.test(k));
       if (!userKey) return;
       const u = cleanUsername(row[userKey]);
@@ -202,6 +215,7 @@ export function parseWorkbook(workbook: XLSX.WorkBook): ParseResult {
         phone_raw: phoneParsed.raw || existing.phone_raw || '',
         phone_e164: phoneParsed.e164 || existing.phone_e164 || '',
         phone_status: phoneParsed.status || existing.phone_status || 'missing',
+        curation_order: poolOrderByUsername.get(u) ?? rawPool.length + rowIndex,
       });
     });
   }
@@ -323,7 +337,7 @@ export function parseWorkbook(workbook: XLSX.WorkBook): ParseResult {
   if (!dataSheetName && !poolSheetName && sheetNames.length > 0) {
     const defaultSheet = sheetNames[0];
     const rawRows = XLSX.utils.sheet_to_json<any>(workbook.Sheets[defaultSheet]);
-    rawRows.forEach(row => {
+    rawRows.forEach((row, rowIndex) => {
       const userKey = Object.keys(row).find(k => /username|creator|kol|akun/i.test(k));
       if (!userKey) return;
       const u = cleanUsername(row[userKey]);
@@ -346,6 +360,7 @@ export function parseWorkbook(workbook: XLSX.WorkBook): ParseResult {
         category: mapCategory(catKey ? row[catKey] : 'UNASSIGNED'),
         curation_status: curationDecision.curation,
         pipeline_status: curationDecision.pipeline,
+        curation_order: rowIndex,
         source: sourceKey && row[sourceKey] ? String(row[sourceKey]).trim() : 'CSV/Excel',
         platform: platformKey && /shopee/i.test(String(row[platformKey])) ? 'Shopee' : 'TikTok',
       });

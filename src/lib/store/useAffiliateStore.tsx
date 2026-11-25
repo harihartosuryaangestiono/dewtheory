@@ -935,6 +935,7 @@ export function AffiliateProvider({ children }: { children: React.ReactNode }) {
         const updatedObj: Creator = {
           ...existing,
           category: (nc.category && nc.category !== 'UNASSIGNED') ? nc.category : existing.category,
+          curation_order: nc.curation_order ?? existing.curation_order,
           curation_status: nc.curation_status || existing.curation_status,
           pipeline_status: resolvedPipelineStatus,
           phone_raw: nc.phone_raw || existing.phone_raw,
@@ -960,6 +961,7 @@ export function AffiliateProvider({ children }: { children: React.ReactNode }) {
           platform: nc.platform || 'TikTok',
           source: nc.source || 'Import',
           category: nc.category || 'UNASSIGNED',
+          curation_order: nc.curation_order,
           curation_status: nc.curation_status || 'pending',
           pipeline_status: nc.pipeline_status || 'pool',
           notes: nc.notes || '',
@@ -978,7 +980,7 @@ export function AffiliateProvider({ children }: { children: React.ReactNode }) {
     const DB_COLS = [
       'id', 'campaign_id', 'username', 'display_name',
       'phone_raw', 'phone_e164', 'phone_status',
-      'platform', 'source', 'category',
+      'platform', 'source', 'category', 'curation_order',
       'curation_status', 'pipeline_status',
       'notes', 'tags', 'is_favorite',
       'assigned_to', 'locked_by', 'locked_until',

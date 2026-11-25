@@ -132,15 +132,24 @@ export default function CurationPage() {
 
   // 1. Pending Queue Computation
   const pendingQueue = useMemo(() => {
-    return creators.filter(c => {
-      if (c.curation_status !== 'pending') return false;
-      if (sourceFilter !== 'ALL' && c.source !== sourceFilter) return false;
-      if (platformFilter !== 'ALL' && c.platform !== platformFilter) return false;
-      if (phoneFilter === 'has_phone' && c.phone_status !== 'valid') return false;
-      if (phoneFilter === 'no_phone' && c.phone_status === 'valid') return false;
-      if (assigneeFilter !== 'ALL' && c.assigned_to !== assigneeFilter) return false;
-      return true;
-    });
+    return creators
+      .filter(c => {
+        if (c.curation_status !== 'pending') return false;
+        if (sourceFilter !== 'ALL' && c.source !== sourceFilter) return false;
+        if (platformFilter !== 'ALL' && c.platform !== platformFilter) return false;
+        if (phoneFilter === 'has_phone' && c.phone_status !== 'valid') return false;
+        if (phoneFilter === 'no_phone' && c.phone_status === 'valid') return false;
+        if (assigneeFilter !== 'ALL' && c.assigned_to !== assigneeFilter) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        if (a.curation_order != null && b.curation_order != null) {
+          return a.curation_order - b.curation_order;
+        }
+        if (a.curation_order != null) return -1;
+        if (b.curation_order != null) return 1;
+        return a.created_at.localeCompare(b.created_at);
+      });
   }, [creators, sourceFilter, platformFilter, phoneFilter, assigneeFilter]);
 
   // Unique Sources in creators for filter dropdown

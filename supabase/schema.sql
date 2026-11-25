@@ -38,6 +38,7 @@ create table if not exists public.creators (
   platform text default 'TikTok' check (platform in ('TikTok', 'Shopee', 'Instagram')),
   source text default 'Manual',
   category text default 'UNASSIGNED' check (category in ('A', 'B', 'C', 'D', 'UNASSIGNED')),
+  curation_order integer,
   curation_status text default 'pending' check (curation_status in ('pending', 'oke', 'second_option', 'reject')),
   pipeline_status text default 'pool' check (pipeline_status in (
     'pool', 'curated', 'queued', 'contacted', 'replied', 'join', 

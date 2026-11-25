@@ -101,6 +101,7 @@ test('Excel Multi-Sheet Import: Parses multi-sheet workbook, handles numbers and
   assert.equal(decimalCreator.phone_e164, '6289653991596');
   assert.equal(decimalCreator.phone_status, 'valid');
   assert.equal(decimalCreator.category, 'A');
+  assert.equal(decimalCreator.curation_order, 0);
 
   // 5. Hyphenated phone (853-3781-7052) normalized to E.164 6285337817052
   const hyphenCreator = result.creators.find(c => c.username === 'creator_hyphen');
@@ -108,6 +109,7 @@ test('Excel Multi-Sheet Import: Parses multi-sheet workbook, handles numbers and
   assert.equal(hyphenCreator.phone_e164, '6285337817052');
   assert.equal(hyphenCreator.phone_status, 'valid');
   assert.equal(hyphenCreator.category, 'B');
+  assert.equal(hyphenCreator.curation_order, 1);
 
   // 6. Zero phone (0) identified as 'missing'
   const zeroPhoneCreator = result.creators.find(c => c.username === 'creator_zero_phone');

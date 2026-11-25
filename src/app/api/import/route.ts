@@ -12,7 +12,7 @@ const supabaseAdmin = createClient(
 const DB_COLS = [
   'id', 'campaign_id', 'username', 'display_name',
   'phone_raw', 'phone_e164', 'phone_status',
-  'platform', 'source', 'category',
+  'platform', 'source', 'category', 'curation_order',
   'curation_status', 'pipeline_status',
   'notes', 'tags', 'is_favorite',
   'assigned_to', 'locked_by', 'locked_until',
