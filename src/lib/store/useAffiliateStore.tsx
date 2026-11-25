@@ -23,6 +23,7 @@ import {
 } from './initialSeed';
 import { DEFAULT_CONFIG } from '../utils/template';
 import { shouldPreserveExistingStatus } from '../utils/excel';
+import { fetchAllPages } from '../utils/pagination';
 import { supabase } from '../supabase/client';
 import { toast } from 'sonner';
 
@@ -148,13 +149,17 @@ export function AffiliateProvider({ children }: { children: React.ReactNode }) {
     async function fetchDatabaseData() {
       try {
         // Fetch Creators
-        const { data: dbCreators } = await supabase
-          .from('creators')
-          .select('*')
-          .order('created_at', { ascending: false });
+        const dbCreators = await fetchAllPages<Creator>((from, to) =>
+          supabase
+            .from('creators')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .order('id', { ascending: true })
+            .range(from, to)
+        );
 
         if (mounted) {
-          setCreators(dbCreators || []);
+          setCreators(dbCreators);
         }
 
         // Fetch Shipments
